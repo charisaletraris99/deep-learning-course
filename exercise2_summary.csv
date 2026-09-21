@@ -1,0 +1,4 @@
+Metric,Mean final accuracy (%),Standard deviation (percentage points)
+training,96.71296387910843,0.8213339891230558
+validation,96.66666746139526,4.188538084291419
+test,98.33333194255829,1.709965347047012
