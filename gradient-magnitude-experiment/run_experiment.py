@@ -26,7 +26,7 @@ from experiment_datasets import DATASETS, load_additional
 DATASET = "digits"
 
 GRIDS = {"sgd": [0.01, 0.1, 1.0, 10.0], "adam": [0.0001, 0.001, 0.01, 0.1],
-         "mag": [0.01, 0.1, 1.0, 10.0], "mag_floor": [0.01, 0.1, 1.0,10.0], "inverse_mag": [0.00001, 0.0001, 0.001, 0.01],
+         "mag": [1.0, 10.0, 20.0, 30.0], "mag_floor": [0.01, 0.1, 1.0,10.0], "inverse_mag": [0.00001, 0.0001, 0.001, 0.01],
          "adagrad_norm": [0.01, 0.1, 1.0, 10.0], "rmsprop": [0.0001, 0.001, 0.01, 0.1],
          "adagrad": [0.01, 0.1, 1.0, 10.0]}
 
@@ -153,7 +153,7 @@ def main():
         if not grids[method] or any(not np.isfinite(v) or v <= 0 for v in grids[method]):
             parser.error(f"Invalid grid for {method}")
     # Prefix the date with the dataset selected at the top of this file.
-    results_directory = "results" if args.dataset == "iris" else f"results_{args.dataset}"
+    results_directory = "results"
     run_folder = f"{args.dataset}_{datetime.now():%Y%m%d-%H%M%S-%f}"
     output = args.output or Path(__file__).parent / results_directory / run_folder
     output.mkdir(parents=True, exist_ok=False)

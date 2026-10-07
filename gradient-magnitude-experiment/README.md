@@ -187,3 +187,7 @@ Sources:
 - Fashion-MNIST: https://github.com/zalandoresearch/fashion-mnist (TensorFlow/Keras hosted IDX gzip files)
 
 Letter's original feature records are also exported as `datasets/letter/letter-recognition.csv`. Image datasets remain in their original compressed formats. Each local dataset folder contains a `metadata.json` with dimensions and split counts. Dataset files are ignored by Git.
+
+### Combined test-selected comparison
+
+`plot_test_accuracy_by_rate.py` also saves `best_models_test_accuracy.png`: one full-epoch curve per optimizer, using the rate with the highest test accuracy averaged over all seeds and the last 20 epochs (epochs 21-40 for a 40-epoch run). Ties select the smaller base rate. Runs shorter than 20 epochs use all available epochs. The rates, scores and actual window are saved in `best_test_rates_last_20_epochs.csv`; selected full curves are saved in `best_test_curves_by_epoch.csv`. This additional comparison selects on test data and is labelled accordingly. It does not change the validation-based choices used by `run_best_rates.py`.

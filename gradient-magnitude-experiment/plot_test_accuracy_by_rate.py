@@ -8,7 +8,23 @@ from run_experiment import load_data, train, tf, np, pd, plt
 
 ROOT = Path(__file__).resolve().parent
 # Change this folder to choose the experiment when running from VS Code.
-RESULTS_FOLDER = ROOT / "results" / "20261007-202748-955819"
+RESULTS_FOLDER = ROOT / "results" / "digits_20261007-213821-729796"
+
+
+def select_best_test_rates(means, epochs, window=20):
+    """Select one rate per optimizer by mean test accuracy in the final window."""
+    start = max(1, epochs - window + 1)
+    scores = (means[means.epoch.between(start, epochs)]
+              .groupby(['method', 'base_lr'], as_index=False)['mean'].mean()
+              .rename(columns={'mean': 'mean_test_accuracy_last_20_epochs'}))
+    # Equal scores prefer the smaller base rate, independent of grid order.
+    selected = (scores.sort_values(['method', 'mean_test_accuracy_last_20_epochs', 'base_lr'],
+                                   ascending=[True, False, True])
+                .drop_duplicates('method').copy())
+    selected['selection_start_epoch'] = start
+    selected['selection_end_epoch'] = epochs
+    selected['epochs_used'] = epochs - start + 1
+    return selected
 
 
 def plot_curves(frame, config, output):
@@ -39,6 +55,30 @@ def plot_curves(frame, config, output):
         fig.tight_layout()
         fig.savefig(output / f'{method}_test_accuracy.png', dpi=180)
         plt.close(fig)
+
+    selected = select_best_test_rates(means, config['epochs'])
+    selected.to_csv(output / 'best_test_rates_last_20_epochs.csv', index=False)
+    selected_curves = means.merge(selected[['method', 'base_lr']], on=['method', 'base_lr'])
+    selected_curves.to_csv(output / 'best_test_curves_by_epoch.csv', index=False)
+    fig, ax = plt.subplots(figsize=(11, 7))
+    for index, method in enumerate(config['methods']):
+        winner = selected[selected.method == method].iloc[0]
+        curve = selected_curves[selected_curves.method == method].sort_values('epoch')
+        ax.plot(curve.epoch, curve['mean'],
+                label=f"{method} | rate={winner.base_lr:g} | window mean={winner.mean_test_accuracy_last_20_epochs:.2%}",
+                linestyle=['-', '--', '-.', ':'][index % 4])
+    start = max(1, config['epochs'] - 19)
+    ax.set(xlabel='Epoch', ylabel='Mean test accuracy', ylim=(0, 1.05),
+           title=f"{config['dataset']} | best rate per optimizer\n"
+                 f"Selected by mean test accuracy over epochs {start}-{config['epochs']}")
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    ax.grid(alpha=0.3)
+    ax.legend(fontsize=8)
+    fig.text(0.5, 0.015, 'Test-selected comparison; test data was used to choose the rates.',
+             ha='center', fontsize=9)
+    fig.tight_layout(rect=(0, 0.04, 1, 1))
+    fig.savefig(output / 'best_models_test_accuracy.png', dpi=180)
+    plt.close(fig)
 
 
 def main():
