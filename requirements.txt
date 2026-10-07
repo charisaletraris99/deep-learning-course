@@ -5,3 +5,4 @@ pandas
 jupyterlab
 ipykernel
 tensorflow
+python-docx
