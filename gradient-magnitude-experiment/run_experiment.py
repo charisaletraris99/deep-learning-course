@@ -1,4 +1,4 @@
-"""Reproducible optimizer comparison on Iris or handwritten digits."""
+"""Reproducible optimizer comparison on five public classification datasets."""
 import os
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
 os.environ.setdefault("TF_ENABLE_ONEDNN_OPTS", "0")
@@ -20,6 +20,10 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 import tensorflow as tf
 from optimizers import GradientStep
+from experiment_datasets import DATASETS, load_additional
+
+# Choose: "iris", "digits", "letter", "mnist", or "fashion_mnist".
+DATASET = "digits"
 
 GRIDS = {"sgd": [0.01, 0.1, 1.0, 10.0], "adam": [0.0001, 0.001, 0.01, 0.1],
          "mag": [0.01, 0.1, 1.0, 10.0], "mag_floor": [0.01, 0.1, 1.0,10.0], "inverse_mag": [0.00001, 0.0001, 0.001, 0.01],
@@ -47,17 +51,16 @@ def load_assignment_data():
 def load_data(dataset="iris"):
     if dataset == "iris":
         return load_assignment_data()
+    if dataset in {"letter", "mnist", "fashion_mnist"}:
+        return load_additional(dataset)
     if dataset != "digits":
-        raise ValueError(f"Unknown dataset: {dataset}")
+        raise ValueError(f"Choose one of {list(DATASETS)}")
     data = load_digits()
     indices = np.arange(len(data.target))
     trainval, test = train_test_split(indices, test_size=0.2, stratify=data.target, random_state=42)
-    train_idx, val = train_test_split(trainval, test_size=0.1,
-                                    stratify=data.target[trainval], random_state=42)
-    # Known pixel range: no statistics learned from validation or test data.
-    x = (data.data / 16.0).astype("float32")
-    y = np.eye(10, dtype="float32")[data.target]
-    return x, y, train_idx, val, test, None
+    train_idx, val = train_test_split(trainval, test_size=0.1, stratify=data.target[trainval], random_state=42)
+    return ((data.data / 16.0).astype("float32"), np.eye(10, dtype="float32")[data.target],
+            train_idx, val, test, None)
 
 
 def model_for(seed, input_dim=4, classes=3):
@@ -130,15 +133,17 @@ def train(method, rate, seed, args, data, test_data=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--dataset", choices=["iris", "digits"], default="iris")
+    parser.add_argument("--dataset", choices=list(DATASETS), default=DATASET)
     parser.add_argument("--epochs", type=int, default=40)
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--seeds", type=int, nargs="+", default=list(range(42, 62)))
     parser.add_argument("--methods", nargs="+", choices=list(GRIDS), default=["sgd", "adam", "mag", "mag_floor", "inverse_mag", "adagrad_norm"])
     parser.add_argument("--grid", type=Path, help="JSON mapping methods to positive base-rate lists")
-    parser.add_argument("--record-test", action="store_true", help="Record test accuracy after each epoch for all rates (reporting only)")
+    parser.add_argument("--record-test", action="store_true", help="Save test accuracy at each epoch for all candidates")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
+    if args.dataset not in DATASETS:
+        parser.error(f"DATASET must be one of {list(DATASETS)}")
     if args.epochs < 1 or args.batch_size < 1:
         parser.error("epochs and batch-size must be positive")
     grids = GRIDS.copy()
@@ -147,7 +152,10 @@ def main():
     for method in args.methods:
         if not grids[method] or any(not np.isfinite(v) or v <= 0 for v in grids[method]):
             parser.error(f"Invalid grid for {method}")
-    output = args.output or Path(__file__).parent / ("results" if args.dataset == "iris" else "results_digits") / datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+    # Prefix the date with the dataset selected at the top of this file.
+    results_directory = "results" if args.dataset == "iris" else f"results_{args.dataset}"
+    run_folder = f"{args.dataset}_{datetime.now():%Y%m%d-%H%M%S-%f}"
+    output = args.output or Path(__file__).parent / results_directory / run_folder
     output.mkdir(parents=True, exist_ok=False)
     tf.config.experimental.enable_op_determinism()
     x, y, train_idx, val, test, scaler = load_data(args.dataset)
@@ -156,9 +164,9 @@ def main():
         np.savez(output / "scaler.npz", mean=scaler.mean_, scale=scaler.scale_)
     config = dict(record_test=args.record_test, epochs=args.epochs, batch_size=args.batch_size, seeds=args.seeds,
                   methods=args.methods, grids={m: grids[m] for m in args.methods},
-                  dataset="sklearn Iris" if args.dataset == "iris" else "sklearn digits", dataset_key=args.dataset, split_seed=42, epsilon=1e-8, b0=1.0,
+                  dataset=DATASETS[args.dataset][0], dataset_key=args.dataset, split_seed=42, epsilon=1e-8, b0=1.0,
                   split_counts={"train": len(train_idx), "validation": len(val), "test": len(test)},
-                  preprocessing="StandardScaler fitted on 120 pre-validation samples, matching exercise1a.py" if args.dataset == "iris" else "Pixel values divided by 16",
+                  preprocessing=DATASETS[args.dataset][1],
                   architecture=[x.shape[1], 16, y.shape[1]], hidden_activation="tanh", output_activation="softmax", tensorflow=tf.__version__,
                   numpy=np.__version__, sklearn=sklearn.__version__, python=platform.python_version())
     (output / "config.json").write_text(json.dumps(config, indent=2))
@@ -184,24 +192,21 @@ def main():
                 selected.append(dict(winner, test_loss=test_loss, test_accuracy=test_accuracy))
             pd.DataFrame(runs).to_csv(output / "runs.csv", index=False)
             pd.DataFrame(histories).to_csv(output / "history.csv", index=False)
-    # Export a dataset-specific choice based on final mean validation accuracy.
     choices = []
     for method in args.methods:
         candidates = []
         for rate in grids[method]:
-            completed = [r for r in runs if r["method"] == method and r["base_lr"] == rate]
-            last = [h for h in histories if h["method"] == method and h["base_lr"] == rate and h["epoch"] == args.epochs]
-            if len(last) == len(args.seeds) and all(r["status"] == "ok" for r in completed):
-                candidates.append((float(np.mean([h["val_accuracy"] for h in last])), rate))
+            completed = [r for r in runs if r['method'] == method and r['base_lr'] == rate]
+            last = [h for h in histories if h['method'] == method and h['base_lr'] == rate and h['epoch'] == args.epochs]
+            if len(last) == len(args.seeds) and all(r['status'] == 'ok' for r in completed):
+                candidates.append((float(np.mean([h['val_accuracy'] for h in last])), rate))
         if candidates:
             accuracy, rate = min(candidates, key=lambda item: (-item[0], item[1]))
             choices.append(dict(method=method, base_lr=rate, mean_final_val_accuracy=accuracy))
     if len(choices) == len(args.methods):
         export = dict(config, source_results=str(output.resolve()), selected=choices,
-                      selection_metric=f"Highest mean validation accuracy at epoch {args.epochs}; ties use smaller rate; test results not used")
-        (output / "best_final_rates.json").write_text(json.dumps(export, indent=2))
-    else:
-        print("No best_final_rates.json exported: a method has no candidate completing all seeds.")
+                      selection_metric=f'Highest mean validation accuracy at epoch {args.epochs}; ties use smaller rate; test not used')
+        (output / 'best_final_rates.json').write_text(json.dumps(export, indent=2))
     if not selected:
         print(f"All runs diverged. Inspect {output / 'runs.csv'}")
         return

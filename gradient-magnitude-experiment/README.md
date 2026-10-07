@@ -128,10 +128,10 @@ To run just the search, use `run_experiment.py --dataset digits`. To rerun a com
 Run:
 
 ```powershell
-.\DL_venv\Scripts\python.exe .\gradient-magnitude-experiment\plot_test_accuracy_by_rate.py --results .\gradient-magnitude-experiment\results\YOUR_RUN_FOLDER
+.\DL_venv\Scripts\python.exe .\gradient-magnitude-experiment\plot_test_accuracy_by_rate.py
 ```
 
-Supply --results to choose a completed Iris or digits search folder. Historical example (requires that local run):
+By default this chooses the newest completed compatible Iris or digits search. To choose a specific experiment:
 
 ```powershell
 .\DL_venv\Scripts\python.exe .\gradient-magnitude-experiment\plot_test_accuracy_by_rate.py --results .\gradient-magnitude-experiment\results\20261006-093705-631888
@@ -148,3 +148,42 @@ For future searches, add `--record-test` to `run_experiment.py` to store these m
 ```
 
 Test curves are descriptive; keep base-rate selection based on validation data. The script does not select a winner based on test curves.
+
+## Letter Recognition MNIST and Fashion MNIST
+
+Choose near the top of `run_experiment.py`:
+
+```python
+DATASET = "letter"  # or "mnist", "fashion_mnist", "iris", "digits"
+```
+
+All three new datasets are downloaded on first use and cached under `gradient-magnitude-experiment/datasets/`. Subsequent runs use the cached files. To download and validate them without training, run `experiment_datasets.py`.
+
+| Name | Samples | Features | Classes | Train / validation / test |
+|---|---:|---:|---:|---|
+| letter | 20,000 | 16 | 26 | 14,400 / 1,600 / 4,000 |
+| mnist | 70,000 | 784 | 10 | 54,000 / 6,000 / 10,000 |
+| fashion_mnist | 70,000 | 784 | 10 | 54,000 / 6,000 / 10,000 |
+
+Letter uses a fixed stratified 80/20 split, then reserves 10% of the non-test rows for validation. It divides known-range features by 15. MNIST and Fashion-MNIST preserve their official test sets and take a stratified 6,000-sample validation set from the official training portion. Images are flattened from 28x28 to 784 features and divided by 255. No preprocessing statistics are learned from validation or test data for these datasets. Seed 42 controls splitting.
+
+The model continues to use 16 tanh hidden units, with automatic input and output dimensions. This keeps the existing optimizer experiment simple; it is not intended as a state-of-the-art image classifier. Training defaults remain 40 epochs, batch size 32 and 20 seeds. These larger searches will take considerably longer than Iris. Tune rates for each dataset rather than reusing Iris's chosen rates.
+
+```powershell
+.\DL_venv\Scripts\python.exe gradient-magnitude-experiment/run_experiment.py --dataset letter --record-test
+```
+
+New runs save to `results_letter/letter_<timestamp>`, `results_mnist/mnist_<timestamp>` or `results_fashion_mnist/fashion_mnist_<timestamp>`. Each completed search exports `best_final_rates.json` using final mean validation accuracy if every method has an eligible candidate. Run the fixed-rate comparison with:
+
+```powershell
+.\DL_venv\Scripts\python.exe gradient-magnitude-experiment/run_best_rates.py --selection "PATH_TO_SEARCH/best_final_rates.json"
+```
+
+The plotting script accepts those search directories through `--results`. Use `--record-test` on the search to avoid retraining just to obtain per-epoch test curves. Test metrics are for reporting, not rate selection.
+
+Sources:
+- Letter Recognition: https://archive.ics.uci.edu/dataset/59/letter+recognition (UCI ZIP)
+- MNIST: https://www.tensorflow.org/datasets/catalog/mnist (TensorFlow/Keras hosted NPZ, verified against the Keras SHA-256)
+- Fashion-MNIST: https://github.com/zalandoresearch/fashion-mnist (TensorFlow/Keras hosted IDX gzip files)
+
+Letter's original feature records are also exported as `datasets/letter/letter-recognition.csv`. Image datasets remain in their original compressed formats. Each local dataset folder contains a `metadata.json` with dimensions and split counts. Dataset files are ignored by Git.

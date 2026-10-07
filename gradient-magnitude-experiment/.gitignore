@@ -4,3 +4,8 @@ results_best_rates/
 results_digits/
 results_digits_best_rates/
 results_rate_plots/
+
+datasets/
+results_letter*/
+results_mnist*/
+results_fashion_mnist*/

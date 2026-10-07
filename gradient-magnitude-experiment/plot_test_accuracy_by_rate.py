@@ -7,6 +7,8 @@ from types import SimpleNamespace
 from run_experiment import load_data, train, tf, np, pd, plt
 
 ROOT = Path(__file__).resolve().parent
+# Change this folder to choose the experiment when running from VS Code.
+RESULTS_FOLDER = ROOT / "results" / "20261007-202748-955819"
 
 
 def plot_curves(frame, config, output):
@@ -42,14 +44,21 @@ def plot_curves(frame, config, output):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, help="Optional new output folder for plots and CSV files")
-    parser.add_argument("--results", type=Path, required=True, help="Search results folder containing config.json and history.csv")
+    parser.add_argument("--results", type=Path, default=RESULTS_FOLDER,
+                        help="Input results folder; defaults to RESULTS_FOLDER above")
     args = parser.parse_args()
     source = args.results
+    for filename in ("config.json", "history.csv"):
+        if not (source / filename).is_file():
+            parser.error(f"Missing {source / filename}. Set RESULTS_FOLDER or use --results with an existing results folder.")
     config = json.loads((source / 'config.json').read_text())
     if 'grids' not in config:
         parser.error('Use a run_experiment search folder, not a run_best_rates folder.')
     frame = pd.read_csv(source / 'history.csv')
-    output = args.output or ROOT / 'results_rate_plots' / datetime.now().strftime('%Y%m%d-%H%M%S-%f')
+    output = args.output or ROOT / 'results_rate_plots' / f'plot_{source.name}'
+    if output.exists():
+        if args.output:
+            parser.error(f"Output folder already exists: {output}. Choose a new --output folder.")
     output.mkdir(parents=True, exist_ok=False)
     config = dict(config, source_results=str(source.resolve()))
     print(f'Source: {source.resolve()}', flush=True)

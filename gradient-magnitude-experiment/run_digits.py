@@ -12,7 +12,7 @@ if __name__ == '__main__':
     parser.add_argument('--epochs', type=int, default=40)
     parser.add_argument('--seeds', type=int, nargs='+', default=list(range(42, 62)))
     args = parser.parse_args()
-    output = ROOT / 'results_digits' / datetime.now().strftime('%Y%m%d-%H%M%S-%f')
+    output = ROOT / 'results_digits' / f"digits_{datetime.now():%Y%m%d-%H%M%S-%f}"
     subprocess.run([sys.executable, str(ROOT / 'run_experiment.py'), '--dataset', 'digits',
                     '--epochs', str(args.epochs), '--seeds', *map(str, args.seeds),
                     '--output', str(output)], check=True)

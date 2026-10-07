@@ -5,6 +5,7 @@ from datetime import datetime
 from pathlib import Path
 
 # Reuse the original dataset, architecture and training loop.
+from experiment_datasets import DATASETS
 from run_experiment import train, load_data, tf, np, pd, plt
 
 ROOT = Path(__file__).resolve().parent
@@ -47,9 +48,9 @@ def main():
         args.batch_size = selection['batch_size']
         args.seeds = selection['seeds']
     dataset = selection.get('dataset_key', 'iris')
-    if dataset not in {'iris', 'digits'}:
+    if dataset not in DATASETS:
         parser.error('Unsupported dataset in selection file')
-    output = args.output or ROOT / ('results_best_rates' if dataset == 'iris' else 'results_digits_best_rates') / datetime.now().strftime('%Y%m%d-%H%M%S-%f')
+    output = args.output or ROOT / ('results_best_rates' if dataset == 'iris' else f"results_{dataset}_best_rates") / f"{dataset}_{datetime.now():%Y%m%d-%H%M%S-%f}"
     output.mkdir(parents=True, exist_ok=False)
     tf.config.experimental.enable_op_determinism()
     x, y, train_idx, val, test, scaler = load_data(dataset)
@@ -57,7 +58,7 @@ def main():
     if scaler is not None:
         np.savez(output / 'scaler.npz', mean=scaler.mean_, scale=scaler.scale_)
     config = dict(selection, epochs=args.epochs, batch_size=args.batch_size, seeds=args.seeds,
-                  dataset='sklearn Iris' if dataset == 'iris' else 'sklearn digits', dataset_key=dataset, split_counts=[len(train_idx), len(val), len(test)],
+                  dataset=DATASETS[dataset][0], dataset_key=dataset, split_counts=[len(train_idx), len(val), len(test)],
                   architecture=[x.shape[1], 16, y.shape[1]], tensorflow=tf.__version__, numpy=np.__version__,
                   reporting='End-of-epoch accuracy on each full partition; arithmetic mean across all requested seeds')
     (output / 'config.json').write_text(json.dumps(config, indent=2))
