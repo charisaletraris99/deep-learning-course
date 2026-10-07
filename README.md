@@ -29,3 +29,8 @@ This example uses generated data; it is a setup check, not an assignment solutio
 `requirements.txt` lists the requested packages. `requirements-lock.txt` records
 the installed versions. Keep coursework here, but do not submit `DL_venv` with
 your assignments.
+
+## Project branches
+
+Assignment material, plant-health sources and experiment reports are kept on this branch. The optimizer experiment code is on the gradient-magnitude-experiment branch. Downloaded datasets, environments and generated run folders remain local.
+
