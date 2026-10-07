@@ -1,0 +1,60 @@
+{
+  "source_results": "results/20261006-093705-631888",
+  "selection_metric": "Highest mean validation accuracy at epoch 40 across all 20 seeds; ties use smaller rate; test results not used",
+  "epochs": 40,
+  "batch_size": 32,
+  "seeds": [
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    60,
+    61
+  ],
+  "selected": [
+    {
+      "method": "sgd",
+      "base_lr": 1.0,
+      "mean_final_val_accuracy": 0.9791666666666666
+    },
+    {
+      "method": "adam",
+      "base_lr": 0.01,
+      "mean_final_val_accuracy": 0.9916666666666666
+    },
+    {
+      "method": "mag",
+      "base_lr": 10.0,
+      "mean_final_val_accuracy": 0.9541666666666666
+    },
+    {
+      "method": "mag_floor",
+      "base_lr": 1.0,
+      "mean_final_val_accuracy": 0.9791666666666666
+    },
+    {
+      "method": "inverse_mag",
+      "base_lr": 0.01,
+      "mean_final_val_accuracy": 0.9833333333333334
+    },
+    {
+      "method": "adagrad_norm",
+      "base_lr": 1.0,
+      "mean_final_val_accuracy": 0.9833333333333334
+    }
+  ]
+}

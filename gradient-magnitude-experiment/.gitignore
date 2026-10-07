@@ -1,0 +1,6 @@
+__pycache__/
+results/
+results_best_rates/
+results_digits/
+results_digits_best_rates/
+results_rate_plots/

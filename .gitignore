@@ -1,0 +1,7 @@
+DL_venv/
+.venv/
+__pycache__/
+.ipynb_checkpoints/
+*.pyc
+*.docx
+report_qa*/

@@ -1,0 +1,8 @@
+numpy
+matplotlib
+scikit-learn
+pandas
+jupyterlab
+ipykernel
+tensorflow
+python-docx
