@@ -45,7 +45,9 @@ def plot_curves(frame, config, output):
         for index, rate in enumerate(config['grids'][method]):
             curve = means[(means.method == method) & (means.base_lr == rate)].sort_values('epoch')
             ax.plot(curve.epoch, curve['mean'], label=f'Base rate = {rate:g}',
-                    linestyle=['-', '--', '-.', ':'][index % 4])
+                    linestyle=['-', '--', '-.', ':'][index % 4],
+                    marker=['o', 's', '^', 'D', 'v', 'x'][index % 6],
+                    markersize=5, markevery=max(1, len(curve) // 10))
         ax.set(xlabel='Epoch', ylabel='Mean test accuracy', ylim=(0, 1.05),
                title=f"{method} | {config['dataset']} | mean of {len(config['seeds'])} runs")
         from matplotlib.ticker import MaxNLocator
@@ -66,7 +68,9 @@ def plot_curves(frame, config, output):
         curve = selected_curves[selected_curves.method == method].sort_values('epoch')
         ax.plot(curve.epoch, curve['mean'],
                 label=f"{method} | rate={winner.base_lr:g} | window mean={winner.mean_test_accuracy_last_20_epochs:.2%}",
-                linestyle=['-', '--', '-.', ':'][index % 4])
+                linestyle=['-', '--', '-.', ':'][index % 4],
+                    marker=['o', 's', '^', 'D', 'v', 'x'][index % 6],
+                    markersize=5, markevery=max(1, len(curve) // 10))
     start = max(1, config['epochs'] - 19)
     ax.set(xlabel='Epoch', ylabel='Mean test accuracy', ylim=(0, 1.05),
            title=f"{config['dataset']} | best rate per optimizer\n"

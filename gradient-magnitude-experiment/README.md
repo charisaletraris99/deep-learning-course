@@ -191,3 +191,12 @@ Letter's original feature records are also exported as `datasets/letter/letter-r
 ### Combined test-selected comparison
 
 `plot_test_accuracy_by_rate.py` also saves `best_models_test_accuracy.png`: one full-epoch curve per optimizer, using the rate with the highest test accuracy averaged over all seeds and the last 20 epochs (epochs 21-40 for a 40-epoch run). Ties select the smaller base rate. Runs shorter than 20 epochs use all available epochs. The rates, scores and actual window are saved in `best_test_rates_last_20_epochs.csv`; selected full curves are saved in `best_test_curves_by_epoch.csv`. This additional comparison selects on test data and is labelled accordingly. It does not change the validation-based choices used by `run_best_rates.py`.
+
+### Automatic plots after a search
+
+`run_experiment.py` now records per-epoch test metrics and automatically calls the plotting script with the newly created results directory. Plots and test-selected rate tables are saved in `results_rate_plots/plot_<run folder name>/`. This includes one plot per optimizer and `best_models_test_accuracy.png`. Training is not repeated. Use `--no-auto-plot` to disable the automatic step; in that case `--record-test` still controls whether the test histories are recorded. Automatic plotting requires complete per-epoch results for every candidate; failed runs remain saved and the plotter reports incomplete measurements rather than averaging fewer seeds.
+
+
+## Single entry point
+
+Run only `run_experiment.py` for the current workflow. Select DATASET and GRIDS near the top, then use Run Python File in VS Code. The default run records test accuracy during training and invokes the plotter automatically, passing the new results path. Outputs appear in `results_rate_plots/plot_<run folder name>/`: one test-accuracy PNG per optimizer, `best_models_test_accuracy.png`, and the corresponding CSV files. Keep `plot_test_accuracy_by_rate.py` alongside it as a helper; you do not need to run it or edit RESULTS_FOLDER. The combined plot continues to select each optimizer's rate by mean test accuracy over the last 20 epochs.

@@ -8,6 +8,8 @@ import platform
 from datetime import datetime
 from pathlib import Path
 import time
+import subprocess
+import sys
 
 import matplotlib
 matplotlib.use("Agg")
@@ -22,11 +24,13 @@ import tensorflow as tf
 from optimizers import GradientStep
 from experiment_datasets import DATASETS, load_additional
 
+# Run this file to train AND automatically save all per-rate and best-model plots.
+# Plots: results_rate_plots/plot_<current run folder name>/
 # Choose: "iris", "digits", "letter", "mnist", or "fashion_mnist".
 DATASET = "digits"
 
 GRIDS = {"sgd": [0.01, 0.1, 1.0, 10.0], "adam": [0.0001, 0.001, 0.01, 0.1],
-         "mag": [1.0, 10.0, 20.0, 30.0], "mag_floor": [0.01, 0.1, 1.0,10.0], "inverse_mag": [0.00001, 0.0001, 0.001, 0.01],
+         "mag": [1.0, 10.0, 50.0, 100.0], "mag_floor": [0.01, 0.1, 1.0,10.0], "inverse_mag": [0.00001, 0.0001, 0.001, 0.01],
          "adagrad_norm": [0.01, 0.1, 1.0, 10.0], "rmsprop": [0.0001, 0.001, 0.01, 0.1],
          "adagrad": [0.01, 0.1, 1.0, 10.0]}
 
@@ -140,8 +144,12 @@ def main():
     parser.add_argument("--methods", nargs="+", choices=list(GRIDS), default=["sgd", "adam", "mag", "mag_floor", "inverse_mag", "adagrad_norm"])
     parser.add_argument("--grid", type=Path, help="JSON mapping methods to positive base-rate lists")
     parser.add_argument("--record-test", action="store_true", help="Save test accuracy at each epoch for all candidates")
+    parser.add_argument("--auto-plot", action=argparse.BooleanOptionalAction, default=True,
+                        help="Automatically create per-rate and best-model test plots after training")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
+    # Automatic test plots need measurements from every training epoch.
+    args.record_test = args.record_test or args.auto_plot
     if args.dataset not in DATASETS:
         parser.error(f"DATASET must be one of {list(DATASETS)}")
     if args.epochs < 1 or args.batch_size < 1:
@@ -235,7 +243,15 @@ def main():
     fig.savefig(output / "comparison.png", dpi=160)
     plt.close(fig)
     print(summary.to_string())
-    print(f"Results: {output.resolve()}")
+    print(f"Results: {output.resolve()}", flush=True)
+    if args.auto_plot:
+        print("Creating test-accuracy plots from the completed experiment...", flush=True)
+        subprocess.run([
+            sys.executable,
+            str(Path(__file__).resolve().parent / "plot_test_accuracy_by_rate.py"),
+            "--results", str(output.resolve()),
+            "--output", str(Path(__file__).resolve().parent / "results_rate_plots" / f"plot_{output.name}"),
+        ], check=True)
 
 
 if __name__ == "__main__":
