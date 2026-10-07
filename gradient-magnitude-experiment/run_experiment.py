@@ -26,11 +26,10 @@ from experiment_datasets import DATASETS, load_additional
 
 # Run this file to train AND automatically save all per-rate and best-model plots.
 # Plots: results_rate_plots/plot_<current run folder name>/
-# Choose: "iris", "digits", "letter", "mnist", or "fashion_mnist".
-DATASET = "digits"
+
 
 GRIDS = {"sgd": [0.01, 0.1, 1.0, 10.0], "adam": [0.0001, 0.001, 0.01, 0.1],
-         "mag": [1.0, 10.0, 50.0, 100.0], "mag_floor": [0.01, 0.1, 1.0,10.0], "inverse_mag": [0.00001, 0.0001, 0.001, 0.01],
+         "mag": [1.0, 10.0, 30.0, 50.0], "mag_floor": [0.01, 0.1, 1.0,10.0], "inverse_mag": [0.00001, 0.0001, 0.001, 0.01],
          "adagrad_norm": [0.01, 0.1, 1.0, 10.0], "rmsprop": [0.0001, 0.001, 0.01, 0.1],
          "adagrad": [0.01, 0.1, 1.0, 10.0]}
 
@@ -135,7 +134,7 @@ def train(method, rate, seed, args, data, test_data=None):
     return result, history, best_weights
 
 
-def main():
+def main(DATASET="iris"):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset", choices=list(DATASETS), default=DATASET)
     parser.add_argument("--epochs", type=int, default=40)
@@ -255,4 +254,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # Choose: "iris", "digits", "letter", "mnist", or "fashion_mnist".
+    Dataset_options = ["iris", "digits", "letter", "mnist", "fashion_mnist"]
+    for Dataset in Dataset_options:
+        main(DATASET=Dataset)
