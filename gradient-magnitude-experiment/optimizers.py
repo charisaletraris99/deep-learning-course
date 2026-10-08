@@ -35,7 +35,7 @@ class GradientStep:
         if self.method == "mag":
             rate = self.rate * magnitude
         elif self.method == "mag_floor":
-            rate = self.rate * tf.maximum(magnitude, tf.maximum(self.map_floor_rate, 0.05))
+            rate = self.rate * tf.maximum(magnitude, self.map_floor_rate)
         elif self.method == "inverse_mag":
             rate = self.rate / (magnitude + self.epsilon)
         elif self.method == "adagrad_norm":
