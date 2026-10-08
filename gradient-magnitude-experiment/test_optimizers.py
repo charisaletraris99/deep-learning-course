@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 import tensorflow as tf
-from optimizers import GradientStep
+from optimizers import GradientStep, calculate_floor_rates, floor_for_rate
 
 
 class GradientRuleTests(unittest.TestCase):
@@ -26,13 +26,39 @@ class GradientRuleTests(unittest.TestCase):
         for value in [0.0, 0.25, 1.0]:
             with self.subTest(magnitude=value):
                 variable = tf.Variable([1.0, 2.0])
-                optimizer = GradientStep('mag_floor', 0.1, [variable])
+                optimizer = GradientStep('mag_floor', 0.1, [variable], map_floor_rate=1.0)
                 magnitude, rate, _ = optimizer.apply(
                     [tf.constant([value, -value])], [variable])
                 self.assertAlmostEqual(float(magnitude), value)
                 self.assertAlmostEqual(float(rate), 0.1)
                 np.testing.assert_allclose(variable.numpy(),
                                            [1 - 0.1 * value, 2 + 0.1 * value], rtol=1e-6)
+
+    def test_floor_ratios(self):
+        self.assertEqual(calculate_floor_rates({'sgd': [0.1], 'mag_floor': [10., 20.]}),
+                         {'10.0': 0.01, '20.0': 0.005})
+        self.assertEqual(calculate_floor_rates({'sgd': [0.1, 1.], 'mag_floor': [10., 30.]}),
+                         {'10.0': 0.01, '30.0': 1 / 30})
+        with self.assertRaises(ValueError):
+            calculate_floor_rates({'sgd': [0.1, 1.], 'mag_floor': [10.]})
+        self.assertEqual(floor_for_rate({}, 10.), 1.)
+        self.assertEqual(floor_for_rate({'map_floor_rate': 0.03}, 10.), 0.03)
+        self.assertEqual(floor_for_rate({'map_floor_rates': {'10.0': 0.01}}, 10.), 0.01)
+
+    def test_custom_floor(self):
+        for magnitude, expected_rate in [(0.005, 0.5), (0.01, 0.5), (0.05, 0.5), (0.1, 1.0)]:
+            with self.subTest(magnitude=magnitude):
+                variable = tf.Variable([1.0])
+                optimizer = GradientStep('mag_floor', 10.0, [variable], map_floor_rate=0.01)
+                _, rate, _ = optimizer.apply([tf.constant([magnitude])], [variable])
+                self.assertAlmostEqual(float(rate), expected_rate, places=6)
+                self.assertAlmostEqual(float(variable[0]), 1 - expected_rate * magnitude, places=6)
+                self.assertEqual(optimizer.epsilon, 1e-8)
+
+    def test_invalid_floor(self):
+        for floor in [-1, float('nan'), float('inf')]:
+            with self.subTest(floor=floor), self.assertRaises(ValueError):
+                GradientStep('mag_floor', 0.1, [tf.Variable([1.0])], map_floor_rate=floor)
 
     def test_denominator(self):
         self.check_rule('inverse_mag', 0.1 / (2 + 1e-8))
@@ -41,6 +67,17 @@ class GradientRuleTests(unittest.TestCase):
         optimizer, variables, gradients = self.check_rule('adagrad_norm', 0.1 / np.sqrt(21))
         _, rate, _ = optimizer.apply(gradients, variables)
         self.assertAlmostEqual(float(rate), 0.1 / np.sqrt(41), places=6)
+
+    def test_builtin_integer_learning_rate(self):
+        for method in ['sgd', 'adam', 'rmsprop', 'adagrad']:
+            with self.subTest(method=method):
+                variable = tf.Variable([1.0])
+                optimizer = GradientStep(method, 1, [variable])
+                _, rate, _ = optimizer.apply([tf.constant([0.25])], [variable])
+                self.assertEqual(float(rate), 1.0)
+                self.assertTrue(np.isfinite(variable.numpy()).all())
+                if method == 'sgd':
+                    self.assertAlmostEqual(float(variable[0]), 0.75)
 
     def test_sgd(self):
         self.check_rule('sgd', 0.1)

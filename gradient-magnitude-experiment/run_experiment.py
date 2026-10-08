@@ -21,17 +21,11 @@ from sklearn.datasets import load_iris, load_digits
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 import tensorflow as tf
-from optimizers import GradientStep
+from optimizers import GradientStep, optimizer_label, calculate_floor_rates, floor_for_rate
 from experiment_datasets import DATASETS, load_additional
 
 # Run this file to train AND automatically save all per-rate and best-model plots.
 # Plots: results_rate_plots/plot_<current run folder name>/
-
-
-GRIDS = {"sgd": [0.01, 0.1, 1.0, 10.0], "adam": [0.0001, 0.001, 0.01, 0.1],
-         "mag": [1.0, 10.0, 30.0, 50.0], "mag_floor": [0.01, 0.1, 1.0,10.0], "inverse_mag": [0.00001, 0.0001, 0.001, 0.01],
-         "adagrad_norm": [0.01, 0.1, 1.0, 10.0], "rmsprop": [0.0001, 0.001, 0.01, 0.1],
-         "adagrad": [0.01, 0.1, 1.0, 10.0]}
 
 
 def load_assignment_data():
@@ -81,10 +75,10 @@ def evaluate(model, x, y):
     return float(loss), float(accuracy)
 
 
-def train(method, rate, seed, args, data, test_data=None):
+def train(method, rate, seed, args, data, test_data=None, map_floor_rate=0.1):
     x_train, x_val, y_train, y_val = data
     model = model_for(seed, x_train.shape[1], y_train.shape[1])
-    optimizer = GradientStep(method, rate, model.trainable_variables)
+    optimizer = GradientStep(method, rate, model.trainable_variables, map_floor_rate=map_floor_rate)
     rng = np.random.default_rng(seed)
 
     @tf.function(reduce_retracing=True)
@@ -118,6 +112,8 @@ def train(method, rate, seed, args, data, test_data=None):
                             train_loss=train_loss, train_accuracy=train_accuracy,
                             val_loss=val_loss, val_accuracy=val_accuracy,
                             mean_abs_gradient=mag, scalar_lr=scalar, update_l2=update))
+        if method == "mag_floor":
+            history[-1]["map_floor_rate"] = map_floor_rate
         if test_data is not None:
             test_loss, test_accuracy = evaluate(model, *test_data)
             if not np.isfinite(test_loss):
@@ -131,10 +127,12 @@ def train(method, rate, seed, args, data, test_data=None):
     result = dict(method=method, base_lr=rate, seed=seed, status=status,
                   best_val_loss=best_loss, best_epoch=best_epoch,
                   seconds=time.perf_counter() - started, error=error)
+    if method == "mag_floor":
+        result["map_floor_rate"] = map_floor_rate
     return result, history, best_weights
 
 
-def main(DATASET="iris"):
+def main(DATASET="iris",GRIDS=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset", choices=list(DATASETS), default=DATASET)
     parser.add_argument("--epochs", type=int, default=40)
@@ -159,6 +157,10 @@ def main(DATASET="iris"):
     for method in args.methods:
         if not grids[method] or any(not np.isfinite(v) or v <= 0 for v in grids[method]):
             parser.error(f"Invalid grid for {method}")
+    try:
+        floors = calculate_floor_rates(grids) if "mag_floor" in args.methods else {}
+    except ValueError as exc:
+        parser.error(str(exc))
     # Prefix the date with the dataset selected at the top of this file.
     results_directory = "results"
     run_folder = f"{args.dataset}_{datetime.now():%Y%m%d-%H%M%S-%f}"
@@ -169,7 +171,8 @@ def main(DATASET="iris"):
     np.savez(output / "split_indices.npz", train=train_idx, validation=val, test=test)
     if scaler is not None:
         np.savez(output / "scaler.npz", mean=scaler.mean_, scale=scaler.scale_)
-    config = dict(record_test=args.record_test, epochs=args.epochs, batch_size=args.batch_size, seeds=args.seeds,
+    config = dict(map_floor_rates=floors, map_floor_formula="sgd_base_lr / mag_floor_base_lr",
+                  map_floor_pairing="by position; single SGD rate broadcasts", sgd_reference_rates=grids.get("sgd", []), record_test=args.record_test, epochs=args.epochs, batch_size=args.batch_size, seeds=args.seeds,
                   methods=args.methods, grids={m: grids[m] for m in args.methods},
                   dataset=DATASETS[args.dataset][0], dataset_key=args.dataset, split_seed=42, epsilon=1e-8, b0=1.0,
                   split_counts={"train": len(train_idx), "validation": len(val), "test": len(test)},
@@ -184,7 +187,7 @@ def main(DATASET="iris"):
             for rate in grids[method]:
                 result, history, weights = train(method, rate, seed, args,
                     (x[train_idx], x[val], y[train_idx], y[val]),
-                    test_data=(x[test], y[test]) if args.record_test else None)
+                    test_data=(x[test], y[test]) if args.record_test else None, map_floor_rate=floor_for_rate(config, rate) if method == "mag_floor" else 1.0)
                 runs.append(result)
                 histories.extend(history)
                 if result["status"] == "ok" and weights is not None:
@@ -231,7 +234,7 @@ def main(DATASET="iris"):
     for axis, metric in zip(axes.flat, metrics):
         for method, group in chosen.groupby("method"):
             mean = group.groupby("epoch")[metric].mean()
-            axis.plot(mean.index, mean.values, label=method)
+            axis.plot(mean.index, mean.values, label=optimizer_label(method, config))
         axis.set(xlabel="Epoch", ylabel=metric)
         if metric != "val_accuracy":
             axis.set_yscale("symlog", linthresh=1e-8)
@@ -256,5 +259,25 @@ def main(DATASET="iris"):
 if __name__ == "__main__":
     # Choose: "iris", "digits", "letter", "mnist", or "fashion_mnist".
     Dataset_options = ["iris", "digits", "letter", "mnist", "fashion_mnist"]
+    General_GRIDS = {"sgd": [0.01, 0.1, 1.0, 10.0], "adam": [0.0001, 0.001, 0.01, 0.1],
+         "mag": [1.0, 10.0, 30.0, 50.0], "mag_floor": [0.01, 0.1, 1.0,10.0], "inverse_mag": [0.00001, 0.0001, 0.001, 0.01],
+         "adagrad_norm": [0.01, 0.1, 1.0, 10.0], "rmsprop": [0.0001, 0.001, 0.01, 0.1],
+         "adagrad": [0.01, 0.1, 1.0, 10.0]}
+    General_test = False
     for Dataset in Dataset_options:
-        main(DATASET=Dataset)
+        if General_test==False:
+            if Dataset == "iris":
+                GRIDS = {"sgd": [0.1], "adam": [0.1],"mag": [10.0], "mag_floor": [10.0], "inverse_mag": [0.01], "adagrad_norm": [1.0]}
+            elif Dataset == "digits":
+                GRIDS = {"sgd": [1], "adam": [0.01],"mag": [30.0], "mag_floor": [30.0], "inverse_mag": [0.001], "adagrad_norm": [1.0]}
+            elif Dataset == "letter":
+                GRIDS = {"sgd": [1], "adam": [0.01],"mag": [10.0], "mag_floor": [10.0], "inverse_mag": [0.01], "adagrad_norm": [10.0]}
+            elif Dataset == "mnist":
+                GRIDS = {"sgd": [0.1], "adam": [0.001],"mag": [10.0], "mag_floor": [10.0], "inverse_mag": [0.0001], "adagrad_norm": [1.0]}
+            elif Dataset == "fashion_mnist":
+                GRIDS = {"sgd": [0.1], "adam": [0.001],"mag": [10.0], "mag_floor": [10.0], "inverse_mag": [0.0001], "adagrad_norm": [1.0]}
+            else:
+                raise ValueError(f"Unknown dataset: {Dataset}")
+        else:
+            GRIDS = General_GRIDS
+        main(DATASET=Dataset,GRIDS=GRIDS)

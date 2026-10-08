@@ -4,6 +4,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
+from optimizers import optimizer_label, floor_for_rate
 from run_experiment import load_data, train, tf, np, pd, plt
 
 ROOT = Path(__file__).resolve().parent
@@ -27,6 +28,37 @@ def select_best_test_rates(means, epochs, window=20):
     return selected
 
 
+
+def plot_mag_floor_values(frame, config, output):
+    """Save a separate mean test-accuracy figure for each recorded floor."""
+    rows = frame[frame.method == "mag_floor"].copy()
+    if rows.empty:
+        return
+    if "map_floor_rate" not in rows.columns:
+        rows["map_floor_rate"] = rows.base_lr.map(lambda rate: floor_for_rate(config, rate))
+    if rows["map_floor_rate"].isna().any():
+        raise ValueError("Missing map_floor_rate for mag_floor records")
+    destination = output / "mag_floor_test_accuracy"
+    destination.mkdir(parents=True, exist_ok=True)
+    from matplotlib.ticker import MaxNLocator
+    for floor, group in rows.groupby("map_floor_rate"):
+        means = group.groupby(["base_lr", "epoch"], as_index=False).test_accuracy.mean()
+        fig, ax = plt.subplots(figsize=(10, 6))
+        for rate, curve in means.groupby("base_lr"):
+            curve = curve.sort_values("epoch")
+            ax.plot(curve.epoch, curve.test_accuracy, marker="o",
+                    markevery=max(1, len(curve) // 10), markersize=4,
+                    label=f"Base rate = {rate:g}")
+        ax.set(xlabel="Epoch", ylabel="Mean test accuracy", ylim=(0, 1.05),
+               title=f"mag_floor (map_floor_rate={floor:g}) | {config['dataset']}")
+        ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+        ax.grid(alpha=0.3)
+        ax.legend()
+        fig.tight_layout()
+        fig.savefig(destination / f"map_floor_rate_{float(floor)!r}.png", dpi=180)
+        plt.close(fig)
+
+
 def plot_curves(frame, config, output):
     """Require every configured seed at every epoch; never average partial runs."""
     keys = ['method', 'base_lr', 'seed', 'epoch']
@@ -40,16 +72,17 @@ def plot_curves(frame, config, output):
         raise ValueError('Missing or invalid test accuracy: all seeds and epochs are required. Inspect runs.csv.')
     means = values.groupby(level=['method', 'base_lr', 'epoch']).agg(['mean', 'std', 'count']).reset_index()
     means.to_csv(output / 'mean_test_accuracy_by_epoch.csv', index=False)
+    plot_mag_floor_values(frame, config, output)
     for method in config['methods']:
         fig, ax = plt.subplots(figsize=(10, 6))
         for index, rate in enumerate(config['grids'][method]):
             curve = means[(means.method == method) & (means.base_lr == rate)].sort_values('epoch')
-            ax.plot(curve.epoch, curve['mean'], label=f'Base rate = {rate:g}',
+            ax.plot(curve.epoch, curve['mean'], label=f'{optimizer_label(method, config, rate)} | Base rate = {rate:g}',
                     linestyle=['-', '--', '-.', ':'][index % 4],
                     marker=['o', 's', '^', 'D', 'v', 'x'][index % 6],
                     markersize=5, markevery=max(1, len(curve) // 10))
         ax.set(xlabel='Epoch', ylabel='Mean test accuracy', ylim=(0, 1.05),
-               title=f"{method} | {config['dataset']} | mean of {len(config['seeds'])} runs")
+               title=f"{optimizer_label(method, config)} | {config['dataset']} | mean of {len(config['seeds'])} runs")
         from matplotlib.ticker import MaxNLocator
         ax.xaxis.set_major_locator(MaxNLocator(integer=True))
         ax.grid(alpha=0.3)
@@ -67,7 +100,7 @@ def plot_curves(frame, config, output):
         winner = selected[selected.method == method].iloc[0]
         curve = selected_curves[selected_curves.method == method].sort_values('epoch')
         ax.plot(curve.epoch, curve['mean'],
-                label=f"{method} | rate={winner.base_lr:g} | window mean={winner.mean_test_accuracy_last_20_epochs:.2%}",
+                label=f"{optimizer_label(method, config, winner.base_lr)} | rate={winner.base_lr:g} | window mean={winner.mean_test_accuracy_last_20_epochs:.2%} | final epoch mean={curve['mean'].iloc[-1]:.2%}",
                 linestyle=['-', '--', '-.', ':'][index % 4],
                     marker=['o', 's', '^', 'D', 'v', 'x'][index % 6],
                     markersize=5, markevery=max(1, len(curve) // 10))
@@ -125,7 +158,8 @@ def main():
             for rate in config['grids'][method]:
                 for seed in config['seeds']:
                     result, history, _ = train(method, rate, seed, options,
-                        (x[tr], x[va], y[tr], y[va]), test_data=(x[te], y[te]))
+                        (x[tr], x[va], y[tr], y[va]), test_data=(x[te], y[te]),
+                        map_floor_rate=floor_for_rate(config, rate) if method == "mag_floor" else 1.0)
                     runs.append(result)
                     histories.extend(history)
                     pd.DataFrame(runs).to_csv(output / 'runs.csv', index=False)

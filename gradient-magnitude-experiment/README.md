@@ -200,3 +200,7 @@ Letter's original feature records are also exported as `datasets/letter/letter-r
 ## Single entry point
 
 Run only `run_experiment.py` for the current workflow. Select DATASET and GRIDS near the top, then use Run Python File in VS Code. The default run records test accuracy during training and invokes the plotter automatically, passing the new results path. Outputs appear in `results_rate_plots/plot_<run folder name>/`: one test-accuracy PNG per optimizer, `best_models_test_accuracy.png`, and the corresponding CSV files. Keep `plot_test_accuracy_by_rate.py` alongside it as a helper; you do not need to run it or edit RESULTS_FOLDER. The combined plot continues to select each optimizer's rate by mean test accuracy over the last 20 epochs.
+
+### Automatic MAG floor
+
+New experiments compute `map_floor_rate = SGD base rate / mag_floor base rate`. A single SGD reference rate applies to every MAG floor candidate; otherwise the two grids must have equal lengths and are paired by position. The minimum effective learning rate therefore equals the paired SGD rate. The calculated values are saved in `config.json` (`map_floor_rates`) and in MAG floor history/run records. Distinct floors get separate figures in `results_rate_plots/plot_<run>/mag_floor_test_accuracy/`. Historical results retain their saved floor (or the original floor of 1 when absent).
