@@ -258,7 +258,9 @@ def main(DATASET="iris",GRIDS=None):
 
 if __name__ == "__main__":
     # Choose: "iris", "digits", "letter", "mnist", or "fashion_mnist".
-    Dataset_options = ["iris", "digits", "letter", "mnist", "fashion_mnist"]
+    # Dataset_options = ["iris", "digits", "letter", "mnist", "fashion_mnist"]
+    # Dataset_options = ["iris", "digits", "letter", "mnist"]
+    Dataset_options = ["fashion_mnist"]
     General_GRIDS = {"sgd": [0.01, 0.1, 1.0, 10.0], "adam": [0.0001, 0.001, 0.01, 0.1],
          "mag": [1.0, 10.0, 30.0, 50.0], "mag_floor": [0.01, 0.1, 1.0,10.0], "inverse_mag": [0.00001, 0.0001, 0.001, 0.01],
          "adagrad_norm": [0.01, 0.1, 1.0, 10.0], "rmsprop": [0.0001, 0.001, 0.01, 0.1],
@@ -275,7 +277,7 @@ if __name__ == "__main__":
             elif Dataset == "mnist":
                 GRIDS = {"sgd": [0.1], "adam": [0.001],"mag": [10.0], "mag_floor": [10.0], "inverse_mag": [0.0001], "adagrad_norm": [1.0]}
             elif Dataset == "fashion_mnist":
-                GRIDS = {"sgd": [0.1], "adam": [0.001],"mag": [10.0], "mag_floor": [10.0], "inverse_mag": [0.0001], "adagrad_norm": [1.0]}
+                GRIDS = {"sgd": [0.01], "adam": [0.001],"mag": [1.0], "mag_floor": [1.0], "inverse_mag": [0.0001], "adagrad_norm": [1.0]}
             else:
                 raise ValueError(f"Unknown dataset: {Dataset}")
         else:

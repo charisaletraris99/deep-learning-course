@@ -12,6 +12,15 @@ ROOT = Path(__file__).resolve().parent
 RESULTS_FOLDER = ROOT / "results" / "digits_20261007-213821-729796"
 
 
+
+def last_epochs_label(curve, config, column="mean"):
+    """Average per-epoch seed means over the final (up to) 20 epochs."""
+    count = min(20, config["epochs"])
+    start = config["epochs"] - count + 1
+    accuracy = curve.loc[curve.epoch.between(start, config["epochs"]), column].mean()
+    return f"last {count} epochs mean={accuracy:.2%}"
+
+
 def select_best_test_rates(means, epochs, window=20):
     """Select one rate per optimizer by mean test accuracy in the final window."""
     start = max(1, epochs - window + 1)
@@ -48,7 +57,7 @@ def plot_mag_floor_values(frame, config, output):
             curve = curve.sort_values("epoch")
             ax.plot(curve.epoch, curve.test_accuracy, marker="o",
                     markevery=max(1, len(curve) // 10), markersize=4,
-                    label=f"Base rate = {rate:g}")
+                    label=f"Base rate = {rate:g} | {last_epochs_label(curve, config, 'test_accuracy')}")
         ax.set(xlabel="Epoch", ylabel="Mean test accuracy", ylim=(0, 1.05),
                title=f"mag_floor (map_floor_rate={floor:g}) | {config['dataset']}")
         ax.xaxis.set_major_locator(MaxNLocator(integer=True))
@@ -77,7 +86,7 @@ def plot_curves(frame, config, output):
         fig, ax = plt.subplots(figsize=(10, 6))
         for index, rate in enumerate(config['grids'][method]):
             curve = means[(means.method == method) & (means.base_lr == rate)].sort_values('epoch')
-            ax.plot(curve.epoch, curve['mean'], label=f'{optimizer_label(method, config, rate)} | Base rate = {rate:g}',
+            ax.plot(curve.epoch, curve['mean'], label=f"{optimizer_label(method, config, rate)} | Base rate = {rate:g} | {last_epochs_label(curve, config)}",
                     linestyle=['-', '--', '-.', ':'][index % 4],
                     marker=['o', 's', '^', 'D', 'v', 'x'][index % 6],
                     markersize=5, markevery=max(1, len(curve) // 10))
@@ -100,7 +109,7 @@ def plot_curves(frame, config, output):
         winner = selected[selected.method == method].iloc[0]
         curve = selected_curves[selected_curves.method == method].sort_values('epoch')
         ax.plot(curve.epoch, curve['mean'],
-                label=f"{optimizer_label(method, config, winner.base_lr)} | rate={winner.base_lr:g} | window mean={winner.mean_test_accuracy_last_20_epochs:.2%} | final epoch mean={curve['mean'].iloc[-1]:.2%}",
+                label=f"{optimizer_label(method, config, winner.base_lr)} | rate={winner.base_lr:g} | {last_epochs_label(curve, config)} | final epoch mean={curve['mean'].iloc[-1]:.2%}",
                 linestyle=['-', '--', '-.', ':'][index % 4],
                     marker=['o', 's', '^', 'D', 'v', 'x'][index % 6],
                     markersize=5, markevery=max(1, len(curve) // 10))
