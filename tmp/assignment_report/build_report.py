@@ -8,6 +8,7 @@ from docx.enum.table import WD_TABLE_ALIGNMENT, WD_CELL_VERTICAL_ALIGNMENT
 
 root=Path.cwd()
 plots=root/'assignment-2/outputs/exercise_1_three_conv_gelu'
+resnet_plots=root/'assignment-2/outputs/exercise_2_residual_gelu'
 doc=Document()
 sec=doc.sections[0]
 sec.page_width=Inches(8.27); sec.page_height=Inches(11.69)
@@ -24,16 +25,16 @@ for name,size in [('Title',23),('Heading 1',16),('Heading 2',12)]:
     doc.styles[name].font.bold=True
     doc.styles[name].paragraph_format.space_before=Pt(10)
 doc.styles['Caption'].font.size=Pt(9)
-doc.core_properties.title='Fashion MNIST CNN design and results'
-doc.core_properties.subject='Assignment 2 Exercise 1 part ii'
+doc.core_properties.title='Fashion MNIST CNN and ResNet results'
+doc.core_properties.subject='Assignment 2 Exercises 1 and 2'
 def p(text): return doc.add_paragraph(text)
 def h(text): doc.add_heading(text,level=1)
 def point(label,text):
     para=doc.add_paragraph(); para.add_run(label+' ').bold=True; para.add_run(text)
-def fig(name,width,caption):
+def fig(name,width,caption,source=plots):
     para=doc.add_paragraph(); para.alignment=WD_ALIGN_PARAGRAPH.CENTER
     para.paragraph_format.keep_with_next=True
-    run=para.add_run(); run.add_picture(str(plots/name),width=Inches(width))
+    run=para.add_run(); run.add_picture(str(source/name),width=Inches(width))
     para=doc.add_paragraph(caption,style='Caption')
 def table(headers,rows,widths):
     t=doc.add_table(rows=1,cols=len(headers)); t.alignment=WD_TABLE_ALIGNMENT.CENTER
@@ -61,8 +62,8 @@ def table(headers,rows,widths):
                 for run in para.runs: run.font.size=Pt(10); run.bold=(i==0)
     return t
 
-doc.add_paragraph('Fashion MNIST CNN design and results',style='Title')
-p('Assignment 2  |  Exercise 1 part ii')
+doc.add_paragraph('Fashion MNIST CNN and ResNet results',style='Title')
+p('Assignment 2  |  Exercises 1 and 2')
 p('We trained a convolutional neural network to classify ten types of clothing. This report explains our model choices and the results. The loss curves show signs of overfitting from around epoch 6, even though validation and test accuracy remain fairly steady.')
 h('Data and model structure')
 p('Each input is a 28 x 28 grayscale image. We use 54,000 images for training, 6,000 for validation and 10,000 for testing. Validation helps us choose the model weights. The test set measures performance on images not used to update the weights.')
@@ -112,6 +113,42 @@ p('Bags, sneakers, sandals and trousers are classified well: 990, 987, 986 and 9
 h('Conclusion')
 p('The CNN learns useful patterns, but training for longer does not keep improving its predictions on unseen data. The clearest warning appears in the loss curves after about epoch 6. Accuracy alone would make this problem easier to miss. For this run, selecting the weights with the lowest validation loss is more useful than simply keeping the last epoch.')
 p('These results come from one run. They support the overfitting explanation, but they do not prove that each design choice is better than other options. The next exercise can compare this CNN with a model that adds residual connections.')
+
+doc.add_page_break()
+h('Exercise 2 Residual connections')
+p('Exercise 2 uses a ResNet-50 model. It keeps the Fashion-MNIST data split and training settings from Exercise 1, but replaces the small three-convolution CNN with a much deeper model that contains residual connections.')
+h('Part i Residual connections and gradients')
+p('A residual connection sends the input around the convolutional path and adds it to the output. A bottleneck block calculates output = F(input) + shortcut(input). F is the sequence of convolutional layers. The shortcut gives gradients a more direct path to earlier layers during backpropagation. This can make a deep network easier to train, but it does not guarantee better accuracy or prevent overfitting.')
+h('Part ii ResNet 50 model')
+p('As shown in the lesson, ResNet-50 uses bottleneck blocks with a 1 x 1 convolution, then a 3 x 3 convolution, then another 1 x 1 convolution. We use 3, 4, 6 and 3 blocks in the four stages. This gives 16 bottleneck blocks and 49 convolutional layers before the final classifier.')
+p('The first 1 x 1 convolution reduces the number of channels inside a block. The 3 x 3 convolution learns local image patterns. The final 1 x 1 convolution expands the channels before adding the shortcut. We use only ResNet-50 because ResNet-101 and ResNet-152 have many more blocks. They would take much longer to train, while the 28 x 28 Fashion-MNIST images and this exercise need one clear comparison with Exercise 1.')
+table(['Part','Output size'],[
+('Input','28 x 28 x 1'),
+('Small 3 x 3 stem','28 x 28 x 16'),
+('Stage 1: 3 blocks','28 x 28 x 64'),
+('Stage 2: 4 blocks','14 x 14 x 128'),
+('Stage 3: 6 blocks','7 x 7 x 256'),
+('Stage 4: 3 blocks','4 x 4 x 512'),
+('Global average pooling','512 values'),
+('Classifier','10 probabilities')],[2.3,4.5])
+p('The convolutions use zero padding at the image borders. When a shortcut needs more channels, we append channels filled with zeros. At the start of later stages, average pooling reduces the shortcut height and width before the zero channels are added. This lets the shortcut and the convolutional path have the same shape for addition.')
+
+doc.add_page_break()
+h('Part iii Training results and comparison')
+point('Training time.', 'The ResNet-50 run took 12,647.5 seconds. This is much more time than the Exercise 1 CNN run because ResNet-50 has 16 bottleneck blocks and 49 convolutional layers, while Exercise 1 has only three convolutional layers.')
+point('Overfitting.', 'For this ResNet run, we cannot identify one clear epoch where overfitting starts. The validation and test loss and accuracy have many rises and falls instead of changing smoothly. These fluctuations make the curve harder to interpret than the Exercise 1 curve. We should therefore not make a strong conclusion about the exact beginning of overfitting from this single run.')
+point('Comparison with Exercise 1.', 'In Exercise 1, the training loss continued to decrease after about epoch 6 while validation and test loss generally increased. That gave a clearer overfitting pattern. In the ResNet graph, training loss decreases, but validation and test results move up and down across many epochs. The deeper model may need further experiments, for example changing the learning rate or repeating the run, before we can make a stronger conclusion.')
+fig('learning_curves.png',6.85,'Figure 3. ResNet-50 loss and accuracy for training, validation and test data across all 40 epochs.',resnet_plots)
+h('Why the ResNet curves are difficult to read')
+p('The training curves improve steadily, but the validation and test curves are not smooth. For example, validation and test loss rise and fall many times after the first few epochs, while validation and test accuracy stay around a similar level with repeated changes. This means that a single loss increase is not enough to identify a clear overfitting point. The selected weights still come from the epoch with the lowest validation loss.')
+
+doc.add_page_break()
+h('ResNet test predictions by clothing class')
+fig('confusion_matrix.png',6.2,'Figure 4. ResNet-50 test confusion matrix for the weights selected using the lowest validation loss. Rows are true classes and columns are predictions.',resnet_plots)
+p('This confusion matrix shows which clothing classes the selected ResNet-50 model classifies correctly and which classes it confuses. It should be compared with the Exercise 1 confusion matrix together with the learning curves, rather than using training time alone to decide which model is better.')
+doc.add_page_break()
+h('Conclusion')
+p('Exercise 1 trains much faster and shows a clear overfitting pattern after around epoch 6. ResNet-50 uses residual connections and a much deeper bottleneck structure, but it needs 12,647.5 seconds for this run. Its validation and test curves have many fluctuations, so this single run does not show a clear point where overfitting begins. The comparison shows that a deeper model increases training cost and does not automatically give smoother results.')
 out=root/'assignment-2/Exercise_1_Report.docx'
 doc.save(out)
 print(out)

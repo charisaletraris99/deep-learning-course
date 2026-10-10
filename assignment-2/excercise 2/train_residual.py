@@ -1,4 +1,4 @@
-"""Exercise 2: train a Fashion-MNIST ResNet bottleneck model."""
+"""Exercise 2: add residual shortcuts to the Exercise 1 Fashion-MNIST CNN."""
 
 from pathlib import Path
 import time
@@ -16,15 +16,29 @@ EPOCHS = 40
 # Larger batches reduce updates per epoch for the larger Fashion MNIST dataset.
 BATCH_SIZE = 128
 
-# We keep only ResNet-50:
-RESNET_VARIANT = "50"
-BLOCKS_PER_STAGE = (3, 4, 6, 3)
-
 CLASS_NAMES = [
     "T-shirt/top", "Trouser", "Pullover", "Dress", "Coat",
     "Sandal", "Shirt", "Sneaker", "Bag", "Ankle boot",
 ]
-OUTPUT_DIR = Path(__file__).resolve().parents[1] / "outputs" / "exercise_2_residual_gelu"
+OUTPUT_DIR = Path(__file__).resolve().parents[1] / "outputs" / "exercise_2_residual_cnn_gelu"
+
+
+@tf.keras.utils.register_keras_serializable(package="Assignment2")
+class ReplicatePadding2D(tf.keras.layers.Layer):
+    """Extend the nearest edge value by one pixel on every spatial side."""
+
+    def call(self, inputs):
+        x = tf.concat([inputs[:, :1, :, :], inputs, inputs[:, -1:, :, :]], axis=1)
+        return tf.concat([x[:, :, :1, :], x, x[:, :, -1:, :]], axis=2)
+
+    def compute_output_shape(self, input_shape):
+        batch, height, width, channels = input_shape
+        return (
+            batch,
+            None if height is None else height + 2,
+            None if width is None else width + 2,
+            channels,
+        )
 
 
 @tf.keras.utils.register_keras_serializable(package="Assignment2")
@@ -47,71 +61,39 @@ class ZeroPadChannels(tf.keras.layers.Layer):
         return {**super().get_config(), "extra_channels": self.extra_channels}
 
 
-def bottleneck_block(x, bottleneck_filters, output_filters, downsample, name):
-    """ResNet bottleneck: 1 x 1 -> 3 x 3 -> 1 x 1, then add its shortcut."""
+def residual_block(x, filters, number):
+    """Add a zero-padded shortcut around one Exercise 1 convolution."""
     shortcut = x
-    if downsample:
-        # Reduce the shortcut spatially when the 3 x 3 convolution uses stride 2.
-        shortcut = tf.keras.layers.AveragePooling2D(
-            2, strides=2, padding="same", name=f"{name}_shortcut_pool"
-        )(shortcut)
-
-    extra_channels = output_filters - int(shortcut.shape[-1])
-    if extra_channels < 0:
-        raise ValueError("A zero-padded shortcut cannot reduce its channel count.")
+    extra_channels = filters - int(shortcut.shape[-1])
     if extra_channels:
         shortcut = ZeroPadChannels(
-            extra_channels, name=f"{name}_shortcut_zero_channels"
+            extra_channels, name=f"shortcut_{number}_zero_channels"
         )(shortcut)
 
+    # These layers match Exercise 1: replicate padding, a 3 x 3 convolution,
+    # stride 1, and GELU. The GELU is applied after the shortcut is added.
+    y = ReplicatePadding2D(name=f"replicate_pad_{number}")(x)
     y = tf.keras.layers.Conv2D(
-        bottleneck_filters, 1, padding="same", use_bias=False, name=f"{name}_conv_1x1_reduce"
-    )(x)
-    y = tf.keras.layers.BatchNormalization(name=f"{name}_bn_1")(y)
-    y = tf.keras.layers.Activation("gelu", name=f"{name}_gelu_1")(y)
-
-    y = tf.keras.layers.Conv2D(
-        bottleneck_filters, 3, strides=2 if downsample else 1, padding="same",
-        use_bias=False, name=f"{name}_conv_3x3"
+        filters, 3, strides=1, padding="valid", name=f"conv_{number}"
     )(y)
-    y = tf.keras.layers.BatchNormalization(name=f"{name}_bn_2")(y)
-    y = tf.keras.layers.Activation("gelu", name=f"{name}_gelu_2")(y)
-
-    y = tf.keras.layers.Conv2D(
-        output_filters, 1, padding="same", use_bias=False, name=f"{name}_conv_1x1_expand"
-    )(y)
-    y = tf.keras.layers.BatchNormalization(name=f"{name}_bn_3")(y)
-    y = tf.keras.layers.Add(name=f"{name}_add")([y, shortcut])
-    return tf.keras.layers.Activation("gelu", name=f"{name}_output")(y)
+    y = tf.keras.layers.Add(name=f"add_{number}")([y, shortcut])
+    return tf.keras.layers.Activation("gelu", name=f"gelu_{number}")(y)
 
 
 def build_model():
-    """Build the ResNet-50 bottleneck model adapted to 28 x 28 images."""
-
+    """Keep the Exercise 1 CNN and add one residual shortcut per convolution."""
     inputs = tf.keras.Input(shape=(28, 28), name="image")
     x = tf.keras.layers.Reshape((28, 28, 1), name="grayscale_channel")(inputs)
-    # A small stem is better suited to 28 x 28 images than ImageNet's 7 x 7 stem.
-    x = tf.keras.layers.Conv2D(16, 3, padding="same", use_bias=False, name="stem_conv")(x)
-    x = tf.keras.layers.BatchNormalization(name="stem_bn")(x)
-    x = tf.keras.layers.Activation("gelu", name="stem_gelu")(x)
-
-    # Expansion by four is the defining property of a ResNet bottleneck block.
-    for stage, (block_count, bottleneck_filters) in enumerate(
-        zip(BLOCKS_PER_STAGE, (16, 32, 64, 128)), start=1
-    ):
-        for block in range(1, block_count + 1):
-            x = bottleneck_block(
-                x,
-                bottleneck_filters=bottleneck_filters,
-                output_filters=bottleneck_filters * 4,
-                downsample=stage > 1 and block == 1,
-                name=f"stage_{stage}_block_{block}",
-            )
-
-    x = tf.keras.layers.GlobalAveragePooling2D(name="global_average_pool")(x)
+    x = residual_block(x, 32, 1)
+    x = tf.keras.layers.MaxPooling2D(2, strides=2, padding="valid", name="pool_1")(x)
+    x = residual_block(x, 64, 2)
+    x = tf.keras.layers.MaxPooling2D(2, strides=2, padding="valid", name="pool_2")(x)
+    x = residual_block(x, 64, 3)
+    x = tf.keras.layers.Flatten(name="flatten")(x)
+    x = tf.keras.layers.Dense(128, activation="gelu", name="dense")(x)
     x = tf.keras.layers.Dropout(0.3, name="dropout")(x)
     outputs = tf.keras.layers.Dense(10, activation="softmax", name="class_probabilities")(x)
-    return tf.keras.Model(inputs, outputs, name=f"fashion_mnist_resnet_{RESNET_VARIANT}_gelu")
+    return tf.keras.Model(inputs, outputs, name="fashion_mnist_residual_three_conv_gelu")
 
 
 class TestMetrics(tf.keras.callbacks.Callback):
