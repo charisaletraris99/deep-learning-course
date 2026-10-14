@@ -1,5 +1,7 @@
 # Gradient magnitude optimizer experiment
 
+For the CNN and residual-network assignment, see [Assignment 2](assignment-2/README.md).
+
 This branch contains the optimizer experiment code and its setup files. Assignment submissions, plant-health material and Word reports are kept on the `deep-learning-assigment-1` branch of this repository.
 
 ## Setup
