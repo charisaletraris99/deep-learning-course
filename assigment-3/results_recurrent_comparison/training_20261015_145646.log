@@ -1,0 +1,39 @@
+Results: C:\Users\Charis Local\Documents\University Of Cyprus PHD\deep-learning-course\assigment-3\results_recurrent_comparison\20261015_145653_928786
+Training: 35000; validation: 5000; reserved test: 10000
+
+SimpleRNN, 1 layer(s), epoch 1/35
+274/274 - 22s - 81ms/step - accuracy: 0.7309 - loss: 0.5114
+train: loss=0.3056, accuracy=0.8808
+val: loss=0.3445, accuracy=0.8542
+
+SimpleRNN, 1 layer(s), epoch 2/35
+274/274 - 22s - 80ms/step - accuracy: 0.8753 - loss: 0.3176
+train: loss=0.2836, accuracy=0.8908
+val: loss=0.3576, accuracy=0.8402
+
+SimpleRNN, 1 layer(s), epoch 3/35
+274/274 - 29s - 105ms/step - accuracy: 0.8976 - loss: 0.2704
+train: loss=0.2223, accuracy=0.9217
+val: loss=0.3248, accuracy=0.8642
+
+SimpleRNN, 1 layer(s), epoch 4/35
+274/274 - 30s - 108ms/step - accuracy: 0.9090 - loss: 0.2466
+train: loss=0.2188, accuracy=0.9217
+val: loss=0.3522, accuracy=0.8772
+
+SimpleRNN, 1 layer(s), epoch 5/35
+274/274 - 29s - 106ms/step - accuracy: 0.9204 - loss: 0.2189
+train: loss=0.2114, accuracy=0.9212
+val: loss=0.3599, accuracy=0.8722
+
+SimpleRNN, 1 layer(s), epoch 6/35
+274/274 - 30s - 109ms/step - accuracy: 0.9261 - loss: 0.2028
+train: loss=0.1754, accuracy=0.9385
+val: loss=0.3894, accuracy=0.8690
+
+SimpleRNN, 1 layer(s), epoch 7/35
+274/274 - 31s - 113ms/step - accuracy: 0.9319 - loss: 0.1934
+train: loss=0.1750, accuracy=0.9374
+val: loss=0.3937, accuracy=0.8470
+
+SimpleRNN, 1 layer(s), epoch 8/35

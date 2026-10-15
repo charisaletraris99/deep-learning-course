@@ -1,0 +1,7 @@
+Results: C:\Users\Charis Local\Documents\University Of Cyprus PHD\deep-learning-course\assigment-3\results_recurrent_comparison\20261015_150139_504251
+Training: 35000; validation: 5000; reserved test: 10000
+
+SimpleRNN, 1 layer(s), epoch 1/15
+274/274 - 26s - 96ms/step - accuracy: 0.7309 - loss: 0.5114
+train: loss=0.3056, accuracy=0.8808
+val: loss=0.3445, accuracy=0.8542

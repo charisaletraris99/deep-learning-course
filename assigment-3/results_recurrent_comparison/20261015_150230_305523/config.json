@@ -1,0 +1,16 @@
+{
+  "epochs": 15,
+  "batch_size": 128,
+  "seed": 42,
+  "vocabulary": 10000,
+  "max_length": 500,
+  "embedding_size": 32,
+  "units_per_layer": 32,
+  "learning_rate": 0.001,
+  "clipnorm": 1.0,
+  "train_size": 35000,
+  "validation_size": 5000,
+  "test_size": 10000,
+  "test_used": false,
+  "selection_metric": "validation binary cross-entropy"
+}
