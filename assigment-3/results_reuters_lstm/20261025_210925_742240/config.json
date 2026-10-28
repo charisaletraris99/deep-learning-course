@@ -1,0 +1,24 @@
+{
+  "epochs": 15,
+  "batch_size": 64,
+  "seed": 42,
+  "dataset_seed": 113,
+  "vocabulary": 10000,
+  "sequence_length": 200,
+  "embedding_size": 64,
+  "units_per_layer": 64,
+  "layers": [
+    1,
+    2,
+    3
+  ],
+  "dropout": 0.2,
+  "learning_rate": 0.001,
+  "clipnorm": 1.0,
+  "split_sizes": {
+    "train": 7859,
+    "validation": 1123,
+    "test": 2246
+  },
+  "selection_metric": "validation_loss"
+}

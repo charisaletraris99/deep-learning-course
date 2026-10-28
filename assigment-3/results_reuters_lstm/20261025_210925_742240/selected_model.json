@@ -1,0 +1,9 @@
+{
+  "layers": 1,
+  "best_epoch": 10,
+  "validation_loss": 1.3587101697921753,
+  "validation_accuracy": 0.683882474899292,
+  "test_accuracy": 0.6558325886726379,
+  "test_loss": 1.4671630859375,
+  "test_macro_f1": 0.1115546997078469
+}

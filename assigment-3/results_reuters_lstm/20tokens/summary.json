@@ -1,0 +1,17 @@
+{
+  "1": {
+    "best_epoch": 9,
+    "validation_loss": 1.330920934677124,
+    "validation_accuracy": 0.7097061276435852
+  },
+  "2": {
+    "best_epoch": 6,
+    "validation_loss": 1.3643105030059814,
+    "validation_accuracy": 0.6803205609321594
+  },
+  "3": {
+    "best_epoch": 11,
+    "validation_loss": 1.4394999742507935,
+    "validation_accuracy": 0.6776491403579712
+  }
+}
