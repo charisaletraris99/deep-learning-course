@@ -132,13 +132,13 @@ def train(method, rate, seed, args, data, test_data=None, map_floor_rate=0.1):
     return result, history, best_weights
 
 
-def main(DATASET="iris",GRIDS=None):
+def main(DATASET="iris", GRIDS=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset", choices=list(DATASETS), default=DATASET)
     parser.add_argument("--epochs", type=int, default=40)
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--seeds", type=int, nargs="+", default=list(range(42, 62)))
-    parser.add_argument("--methods", nargs="+", choices=list(GRIDS), default=["sgd", "adam", "mag", "mag_floor", "inverse_mag", "adagrad_norm"])
+    parser.add_argument("--methods", nargs="+", choices=list(GRIDS["general"]), default=["sgd", "adam", "mag", "mag_floor", "inverse_mag", "adagrad_norm"])
     parser.add_argument("--grid", type=Path, help="JSON mapping methods to positive base-rate lists")
     parser.add_argument("--record-test", action="store_true", help="Save test accuracy at each epoch for all candidates")
     parser.add_argument("--auto-plot", action=argparse.BooleanOptionalAction, default=True,
@@ -151,7 +151,8 @@ def main(DATASET="iris",GRIDS=None):
         parser.error(f"DATASET must be one of {list(DATASETS)}")
     if args.epochs < 1 or args.batch_size < 1:
         parser.error("epochs and batch-size must be positive")
-    grids = GRIDS.copy()
+    grids = GRIDS["general"].copy()
+    grids.update(GRIDS[args.dataset])
     if args.grid:
         grids.update(json.loads(args.grid.read_text()))
     for method in args.methods:
@@ -260,26 +261,23 @@ if __name__ == "__main__":
     # Choose: "iris", "digits", "letter", "mnist", or "fashion_mnist".
     # Dataset_options = ["iris", "digits", "letter", "mnist", "fashion_mnist"]
     # Dataset_options = ["iris", "digits", "letter", "mnist"]
-    Dataset_options = ["fashion_mnist"]
+    Dataset_options = ["iris", "digits", "letter", "mnist", "fashion_mnist"]
     General_GRIDS = {"sgd": [0.01, 0.1, 1.0, 10.0], "adam": [0.0001, 0.001, 0.01, 0.1],
          "mag": [1.0, 10.0, 30.0, 50.0], "mag_floor": [0.01, 0.1, 1.0,10.0], "inverse_mag": [0.00001, 0.0001, 0.001, 0.01],
          "adagrad_norm": [0.01, 0.1, 1.0, 10.0], "rmsprop": [0.0001, 0.001, 0.01, 0.1],
          "adagrad": [0.01, 0.1, 1.0, 10.0]}
-    General_test = False
+    GRIDS = {
+        "iris": {"sgd": [0.1], "adam": [0.1], "mag": [10.0], "mag_floor": [10.0], "inverse_mag": [0.01], "adagrad_norm": [1.0]},
+        "digits": {"sgd": [1], "adam": [0.01], "mag": [30.0], "mag_floor": [30.0], "inverse_mag": [0.001], "adagrad_norm": [1.0]},
+        "letter": {"sgd": [1], "adam": [0.01], "mag": [10.0], "mag_floor": [10.0], "inverse_mag": [0.01], "adagrad_norm": [10.0]},
+        "mnist": {"sgd": [0.1], "adam": [0.001], "mag": [10.0], "mag_floor": [10.0], "inverse_mag": [0.0001], "adagrad_norm": [1.0]},
+        "fashion_mnist": {"sgd": [0.01], "adam": [0.001], "mag": [1.0], "mag_floor": [1.0], "inverse_mag": [0.0001], "adagrad_norm": [1.0]},
+        "general": General_GRIDS,
+    }
+    # An explicit --dataset runs just that dataset; otherwise run all five.
+    if any(arg == '--dataset' or arg.startswith('--dataset=') for arg in sys.argv[1:]):
+        Dataset_options = ["iris"]  # main parses the requested dataset and its rates.
+    elif any(arg == '--output' or arg.startswith('--output=') for arg in sys.argv[1:]):
+        raise SystemExit('--output requires --dataset, because each dataset needs a separate output folder.')
     for Dataset in Dataset_options:
-        if General_test==False:
-            if Dataset == "iris":
-                GRIDS = {"sgd": [0.1], "adam": [0.1],"mag": [10.0], "mag_floor": [10.0], "inverse_mag": [0.01], "adagrad_norm": [1.0]}
-            elif Dataset == "digits":
-                GRIDS = {"sgd": [1], "adam": [0.01],"mag": [30.0], "mag_floor": [30.0], "inverse_mag": [0.001], "adagrad_norm": [1.0]}
-            elif Dataset == "letter":
-                GRIDS = {"sgd": [1], "adam": [0.01],"mag": [10.0], "mag_floor": [10.0], "inverse_mag": [0.01], "adagrad_norm": [10.0]}
-            elif Dataset == "mnist":
-                GRIDS = {"sgd": [0.1], "adam": [0.001],"mag": [10.0], "mag_floor": [10.0], "inverse_mag": [0.0001], "adagrad_norm": [1.0]}
-            elif Dataset == "fashion_mnist":
-                GRIDS = {"sgd": [0.01], "adam": [0.001],"mag": [1.0], "mag_floor": [1.0], "inverse_mag": [0.0001], "adagrad_norm": [1.0]}
-            else:
-                raise ValueError(f"Unknown dataset: {Dataset}")
-        else:
-            GRIDS = General_GRIDS
-        main(DATASET=Dataset,GRIDS=GRIDS)
+        main(DATASET=Dataset, GRIDS=GRIDS)

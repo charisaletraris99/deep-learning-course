@@ -104,12 +104,33 @@ def plot_curves(frame, config, output):
     selected.to_csv(output / 'best_test_rates_last_20_epochs.csv', index=False)
     selected_curves = means.merge(selected[['method', 'base_lr']], on=['method', 'base_lr'])
     selected_curves.to_csv(output / 'best_test_curves_by_epoch.csv', index=False)
+    loss_values = frame.set_index(keys)['test_loss'].reindex(expected)
+    if loss_values.isna().any() or not np.isfinite(loss_values).all() or (loss_values < 0).any():
+        raise ValueError('Missing or invalid test loss: all seeds and epochs are required. Inspect runs.csv.')
+    loss_means = loss_values.groupby(level=['method', 'base_lr', 'epoch']).agg(['mean', 'std', 'count']).reset_index()
+    loss_means.to_csv(output / 'mean_test_loss_by_epoch.csv', index=False)
+    selected_loss = loss_means.merge(selected[['method', 'base_lr']], on=['method', 'base_lr'])
+    selected_loss.to_csv(output / 'best_test_loss_curves_by_epoch.csv', index=False)
+    statistics = []
+    for method in config['methods']:
+        winner = selected[selected.method == method].iloc[0]
+        accuracy = selected_curves[selected_curves.method == method].sort_values('epoch')
+        loss = selected_loss[selected_loss.method == method].sort_values('epoch')
+        best_accuracy = accuracy.loc[accuracy['mean'].idxmax()]
+        best_loss = loss.loc[loss['mean'].idxmin()]
+        statistics.append(dict(method=method, base_lr=winner.base_lr,
+            final_accuracy=accuracy['mean'].iloc[-1], best_mean_accuracy=best_accuracy['mean'],
+            best_accuracy_epoch=int(best_accuracy.epoch), mean_accuracy_all_epochs=accuracy['mean'].mean(),
+            final_loss=loss['mean'].iloc[-1], best_mean_loss=best_loss['mean'],
+            best_loss_epoch=int(best_loss.epoch), mean_loss_all_epochs=loss['mean'].mean()))
+    stats = pd.DataFrame(statistics).set_index('method')
+    stats.to_csv(output / 'test_accuracy_loss_summary.csv')
     fig, ax = plt.subplots(figsize=(11, 7))
     for index, method in enumerate(config['methods']):
         winner = selected[selected.method == method].iloc[0]
         curve = selected_curves[selected_curves.method == method].sort_values('epoch')
         ax.plot(curve.epoch, curve['mean'],
-                label=f"{optimizer_label(method, config, winner.base_lr)} | rate={winner.base_lr:g} | {last_epochs_label(curve, config)} | final epoch mean={curve['mean'].iloc[-1]:.2%}",
+                label=f"{optimizer_label(method, config, winner.base_lr)} | rate={winner.base_lr:g} | {last_epochs_label(curve, config)} | final={stats.loc[method, 'final_accuracy']:.2%} | best={stats.loc[method, 'best_mean_accuracy']:.2%} | all epochs={stats.loc[method, 'mean_accuracy_all_epochs']:.2%}",
                 linestyle=['-', '--', '-.', ':'][index % 4],
                     marker=['o', 's', '^', 'D', 'v', 'x'][index % 6],
                     markersize=5, markevery=max(1, len(curve) // 10))
@@ -124,6 +145,26 @@ def plot_curves(frame, config, output):
              ha='center', fontsize=9)
     fig.tight_layout(rect=(0, 0.04, 1, 1))
     fig.savefig(output / 'best_models_test_accuracy.png', dpi=180)
+    plt.close(fig)
+
+    fig, ax = plt.subplots(figsize=(14, 7))
+    for index, method in enumerate(config['methods']):
+        winner = selected[selected.method == method].iloc[0]
+        curve = selected_loss[selected_loss.method == method].sort_values('epoch')
+        row = stats.loc[method]
+        ax.plot(curve.epoch, curve['mean'],
+                label=f"{optimizer_label(method, config, winner.base_lr)} | rate={winner.base_lr:g} | final={row.final_loss:.4f} | best={row.best_mean_loss:.4f} | all epochs={row.mean_loss_all_epochs:.4f}",
+                linestyle=['-', '--', '-.', ':'][index % 4],
+                marker=['o', 's', '^', 'D', 'v', 'x'][index % 6],
+                markersize=5, markevery=max(1, len(curve) // 10))
+    ax.set(xlabel='Epoch', ylabel='Mean test loss',
+           title=f"{config['dataset']} | test loss at the accuracy-selected rates")
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    ax.grid(alpha=0.3)
+    ax.legend(fontsize=8)
+    fig.text(0.5, 0.015, 'Rates were selected using test accuracy.', ha='center', fontsize=9)
+    fig.tight_layout(rect=(0, 0.04, 1, 1))
+    fig.savefig(output / 'best_models_test_loss.png', dpi=180)
     plt.close(fig)
 
 

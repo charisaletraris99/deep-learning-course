@@ -1,5 +1,11 @@
 # Mean absolute gradient experiment
 
+## Report-rate accuracy and loss comparison
+
+Running `run_experiment.py` with no arguments now runs all five datasets using the six optimizer rates shown in the Dataset and Results Summary PDF. To run only Iris, use `--dataset iris` (also `digits`, `letter`, `mnist`, or `fashion_mnist`). Defaults are 40 epochs and 20 seeds. Downloads may be needed for the larger datasets. Use `--epochs 2 --seeds 42` for a quick check.
+
+Each dataset produces the existing `best_models_test_accuracy.png`, the new `best_models_test_loss.png`, and `test_accuracy_loss_summary.csv` under `results_rate_plots/plot_<run>/`. Both plots use the same optimizer rates. The summary gives the final epoch's seed mean, best seed-mean epoch (maximum accuracy or minimum loss), its epoch number, and the mean across all epoch means. Accuracy and loss are measured on the test set. The rates came from the earlier test-selected report, so these are descriptive comparisons rather than unbiased estimates. Fresh runs can differ from the report and do not recover its missing original histories. The CSV files in the corresponding `results/<run>/` folder contain the underlying measurements.
+
 This project tests Charis Aletraris's proposed optimizer using TensorFlow. The comparison methods are optimizers, all training the same neural network.
 
 ## Exact rules
