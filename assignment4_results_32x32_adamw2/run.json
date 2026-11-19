@@ -1,0 +1,74 @@
+{
+  "status": "complete",
+  "seed": 42,
+  "epochs": 30,
+  "batch_size": 64,
+  "image_size": 32,
+  "learning_rate": 0.0001,
+  "optimizer": "AdamW",
+  "weight_decay": 0.001,
+  "global_clipnorm": 1.0,
+  "loss": "categorical_crossentropy",
+  "augmentation": "none",
+  "precision": "float32",
+  "preprocessing": "original 32x32 float RGB [0,1] -> multiply by255 -> VGG16 preprocess_input; no resize",
+  "split": {
+    "train": 45000,
+    "validation": 5000,
+    "test": 10000,
+    "validation_fraction": 0.1,
+    "indices_sha256": "6ffbcc792f033ecb23c46c68538d0e223edb1d0856ec73fecae8e53673a4187b"
+  },
+  "vit": {
+    "patch_size": 8,
+    "patches": 16,
+    "embed_dim": 192,
+    "heads": 6,
+    "blocks": 6,
+    "mlp_dim": 768,
+    "dropout": 0.1,
+    "pooling": "mean",
+    "pretrained": false,
+    "patch_projection_normalization": "LayerNorm before positional embeddings"
+  },
+  "vgg": {
+    "backbone": "VGG16 include_top=False",
+    "head": "GAP -> Dense100 softmax",
+    "all_layers_trainable": true,
+    "transfer_weights": "imagenet"
+  },
+  "common_accuracy_target": 0.2,
+  "device": "/GPU:0",
+  "device_details": [
+    {
+      "compute_capability": [
+        6,
+        1
+      ],
+      "device_name": "NVIDIA GeForce GTX 1050"
+    }
+  ],
+  "platform": "Linux-6.18.58.1-microsoft-standard-WSL2-x86_64-with-glibc2.43",
+  "processor": "",
+  "python": "3.12.16",
+  "versions": {
+    "tensorflow": "2.17.1",
+    "keras": "3.15.1",
+    "numpy": "1.26.4",
+    "scikit-learn": "1.9.1",
+    "matplotlib": "3.11.2"
+  },
+  "deterministic_ops": true,
+  "timing": "synchronized training + validation; test evaluation timed separately; epoch1 includes tracing",
+  "test_policy": "evaluate after each epoch for curves; no test-driven optimization, stopping or selection",
+  "model_order": [
+    "vgg16_scratch",
+    "vgg16_transfer",
+    "vit_scratch"
+  ],
+  "completed_models": [
+    "vgg16_scratch",
+    "vgg16_transfer",
+    "vit_scratch"
+  ]
+}
